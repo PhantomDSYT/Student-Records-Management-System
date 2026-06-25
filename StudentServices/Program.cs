@@ -1,5 +1,8 @@
 using StudentServices.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using StudentServices.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +27,35 @@ builder.Services.AddCors(options =>
         .AllowAnyMethod());
 });
 
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var key = jwtSection["Key"];
+var issuer = jwtSection["Issuer"];
+var audience = jwtSection["Audience"];
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false; // set true in production
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = issuer,
+        ValidAudience = audience,
+        IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)),
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+builder.Services.AddSingleton<TokenServices>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -34,6 +66,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
